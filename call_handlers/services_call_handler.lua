@@ -1,9 +1,10 @@
-local build_util = require 'lib.build_util'
-local validator = radiant.validator
+local build_util
+local validator
 
 local ServiceCallHandler = class()
 
 function ServiceCallHandler:get_service(session, response, name)
+   validator = validator or radiant.validator
    validator.expect_argument_types({'string'}, name)
    if stonehearth_ace[name] then
       -- we'd like to just send the store address rather than the actual
@@ -15,6 +16,7 @@ function ServiceCallHandler:get_service(session, response, name)
 end
 
 function ServiceCallHandler:get_client_service(session, response, name)
+   validator = validator or radiant.validator
    validator.expect_argument_types({'string'}, name)
    if stonehearth_ace[name] then
       -- we'd like to just send the store address rather than the actual
@@ -60,5 +62,29 @@ function ServiceCallHandler:get_all_weathers(session, response)
       end)
    end
 end
+
+function ServiceCallHandler:get_version_info(session, response)
+   return stonehearth_ace.version_info
+end
+
+function ServiceCallHandler:get_game_creation_version_info(session, response)
+   response:resolve({version_info = stonehearth.game_creation:get_game_creation_ace_version_info()})
+end
+
+function ServiceCallHandler:get_custom_tooltip_command(session, response, item_or_type, tooltip_type)
+   validator = validator or radiant.validator
+   if validator then
+      validator.expect_argument_types({validator.optional('string')}, tooltip_type)
+   end
+   
+   local custom_tooltips = radiant.entities.get_entity_data(item_or_type, 'stonehearth_ace:custom_tooltip')
+   if custom_tooltips and tooltip_type then
+      custom_tooltips = custom_tooltips[tooltip_type]
+   end
+
+   response:resolve({custom_tooltips = custom_tooltips or {}})
+end
+
+ServiceCallHandler.get_custom_tooltip = ServiceCallHandler.get_custom_tooltip_command
 
 return ServiceCallHandler
