@@ -73,7 +73,15 @@ function ExtensibleObjectCallHandler:select_extensible_object_command(session, r
             -- we only care about the user clicking, not moving the mouse
             if is_notify_resolve and rotation_index then
                local output_origin = length and sel:get_point_in_current_direction(length - 1)
-               _radiant.call('stonehearth_ace:set_extensible_object_command', entity, rotation_index, length, region, sel:get_current_connector_region(), output_point, output_origin)
+               local config = {
+                  rotation_index = rotation_index,
+                  length = length,
+                  region_table = region,
+                  connector_region_table = sel:get_current_connector_region(),
+                  output_point = output_point,
+                  output_origin = output_origin
+               }
+               _radiant.call('stonehearth_ace:set_extensible_object_command', entity, config)
                   :always(
                      function()
                         if rotation_index then
@@ -88,7 +96,15 @@ function ExtensibleObjectCallHandler:select_extensible_object_command(session, r
       selector:done(
          function(sel, rotation_index, length, region, output_point)
             local output_origin = length and sel:get_point_in_current_direction(length - 1)
-            _radiant.call('stonehearth_ace:set_extensible_object_command', entity, rotation_index, length, region, sel:get_current_connector_region(), output_point, output_origin)
+            local config = {
+               rotation_index = rotation_index,
+               length = length,
+               region_table = region,
+               connector_region_table = sel:get_current_connector_region(),
+               output_point = output_point,
+               output_origin = output_origin
+            }
+            _radiant.call('stonehearth_ace:set_extensible_object_command', entity, config)
                :done(
                   function(r)
                      response:resolve({})
@@ -112,10 +128,16 @@ function ExtensibleObjectCallHandler:select_extensible_object_command(session, r
       :go()
 end
 
-function ExtensibleObjectCallHandler:set_extensible_object_command(session, response, entity, rotation_index, length, region_table, connector_region_table, output_point, output_origin)
-   -- apparently Region3 parameters get turned into tables and have to be loaded
-   validator.expect_argument_types({'Entity', 'number', validator.optional('number'), validator.optional('table'), validator.optional('table'), validator.optional('Point3'), validator.optional('Point3')},
-         entity, rotation_index, length, region_table, connector_region_table, output_point, output_origin)
+function ExtensibleObjectCallHandler:set_extensible_object_command(session, response, entity, config)
+   -- config contains: rotation_index, length, region_table, connector_region_table, output_point, output_origin
+   validator.expect_argument_types({'Entity', 'table'}, entity, config)
+
+   local rotation_index = config.rotation_index
+   local length = config.length
+   local region_table = config.region_table
+   local connector_region_table = config.connector_region_table
+   local output_point = config.output_point
+   local output_origin = config.output_origin
 
    local region, connector_region
 
