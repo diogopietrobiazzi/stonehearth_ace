@@ -1228,49 +1228,78 @@ function RestockDirector:_make_is_restockable_predicate(allow_stored)
    -- *ALL* containers with the same filter key, which is why this is
    -- implemented in terms of global functions, parameters to the filter
    -- function, and captured local variables.
+   local function _check_storage(entity, allow_out_of_world_entities)
+      local storage = inventory:container_for(entity)
+      if storage then
+         local sc = storage:get_component('stonehearth:storage')
+         if not sc then
+            return false
+         end
+
+         local sc_type = sc:get_type()
+         if sc_type ~= 'output_crate' then  -- We can always take things from output crates.
+            if not sc:is_public() then
+               return false  -- Don't touch my private property.
+            end
+            if sc:get_passed_items()[entity:get_id()] then
+               if not allow_stored then
+                  return false  -- Already in a storage that accepts it.
+               elseif sc_type == 'input_crate' and sc:is_input_bin_highest_priority() then
+                  return false  -- ACE: We don't restock from *highest priority* input crates even if we allow stored.
+               end
+            end
+         end
+         return true
+      end
+
+      return allow_out_of_world_entities or exists_in_world(entity)
+   end
+
+   local function _check_ownership_and_loot(entity)
+      local item_player_id = get_player_id(entity)
+      if item_player_id == player_id then
+         return true
+      end
+
+      local task_tracker_component = entity:get_component('stonehearth:task_tracker')
+      return task_tracker_component and task_tracker_component:is_task_requested(player_id, nil, 'stonehearth:loot_item')
+   end
+
+   local function _check_catalog_and_item_status(entity)
+      if entity:get_component('stonehearth:ghost_form') then
+         return false
+      end
+
+      local catalog_data = get_catalog_data(catalog, entity:get_uri())
+      if not catalog_data or not rawget(catalog_data, 'is_item') then
+         return false
+      end
+
+      return not entity:get_component('stonehearth:construction_progress')
+   end
+
+   local function _check_undeployable(entity)
+      local root_entity = entity
+      local ifc = entity:get_component('stonehearth:iconic_form')
+      if ifc then
+         root_entity = ifc:get_root_entity() or entity
+      end
+
+      local sc = root_entity:get_component('stonehearth:storage')
+      return not sc or sc:is_undeployable()
+   end
+
    local function _filter_passes(entity, allow_out_of_world_entities)
-      -- TODO: If this continues to show up on the profiler, check if perhaps it's due to a cache sticking around after a restock director is deactivated.
       if not entity or not entity:is_valid() then
          return false
       end
 
-      local storage = inventory:container_for(entity)
-      if storage then
-         local sc = storage:get_component('stonehearth:storage')
-         if sc then
-            local sc_type = sc:get_type()
-            if sc_type ~= 'output_crate' then  -- We can always take things from output crates.
-               if not sc:is_public() then
-                  return false  -- Don't touch my private property.
-               end
-               if sc:get_passed_items()[entity:get_id()] then
-                  if not allow_stored then
-                     return false  -- Already in a storage that accepts it.
-                  elseif sc_type == 'input_crate' and sc:is_input_bin_highest_priority() then
-                     return false  -- ACE: We don't restock from *highest priority* input crates even if we allow stored.
-                  end
-               end
-            end
-         else
-            return false
-         end
-      else
-         if not allow_out_of_world_entities and not exists_in_world(entity) then
-            return false
-         end
+      if not _check_storage(entity, allow_out_of_world_entities) then
+         return false
       end
 
-      local item_player_id = get_player_id(entity)
-      if item_player_id ~= player_id then
-         local task_tracker_component = entity:get_component('stonehearth:task_tracker')
-         local loot_item_requested = false
-         if task_tracker_component and task_tracker_component:is_task_requested(player_id, nil, 'stonehearth:loot_item') then
-            loot_item_requested = true
-         end
-
-         if not loot_item_requested then
-            return false
-         end
+      if not _check_ownership_and_loot(entity) then
+         return false
       end
 
       local efc = entity:get_component('stonehearth:entity_forms')
@@ -1282,38 +1311,11 @@ function RestockDirector:_make_is_restockable_predicate(allow_stored)
          return _filter_passes(iconic_entity, true)
       end
 
-      if entity:get_component('stonehearth:ghost_form') then
+      if not _check_catalog_and_item_status(entity) then
          return false
       end
 
-      local entity_uri = entity:get_uri()
-      local catalog_data = get_catalog_data(catalog, entity_uri)
-      if not catalog_data then
-         return false
-      end
-
-      if not rawget(catalog_data, 'is_item') then
-         return false
-      end
-
-      if entity:get_component('stonehearth:construction_progress') then
-         return false
-      end
-
-      local root_entity = entity
-      local ifc = entity:get_component('stonehearth:iconic_form')
-      if ifc then
-         root_entity = ifc:get_root_entity() or entity
-      end
-
-      local sc = root_entity:get_component('stonehearth:storage')
-      if sc then
-         if not sc:is_undeployable() then
-            return false
-         end
-      end
-
-      return true
+      return _check_undeployable(entity)
    end
 
    return _filter_passes
