@@ -17,6 +17,10 @@ end
 
 AceResourceNodeComponent._ace_old_activate = ResourceNodeComponent.activate
 function AceResourceNodeComponent:activate()
+   self._json = radiant.entities.get_json(self)
+   if not self._json then
+      return
+   end
    if self._ace_old_activate then
       self:_ace_old_activate()
    end
@@ -220,7 +224,7 @@ function AceResourceNodeComponent:spawn_resource(harvester_entity, collect_locat
 end
 
 function AceResourceNodeComponent:_place_spawned_items(harvester, location, owner, spill_items)
-   local json = radiant.entities.get_json(self)
+   local json = self._json
    if not json then
       return {}
    end

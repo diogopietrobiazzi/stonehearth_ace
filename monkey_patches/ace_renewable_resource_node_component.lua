@@ -13,14 +13,22 @@ local HARVEST_ACTION = 'stonehearth:harvest_renewable_resource'
 local RENEWED_MODEL_NAME = 'stonehearth:renewable_resource_node:renewed'
 local HALF_RENEWED_MODEL_NAME = 'stonehearth:renewable_resource_node:half_renewed'
 
+AceRenewableResourceNodeComponent._ace_old_create = RenewableResourceNodeComponent.create
 function AceRenewableResourceNodeComponent:create()
+   if self._ace_old_create then
+      self:_ace_old_create()
+   end
    self._is_create = true
 end
 
 AceRenewableResourceNodeComponent._ace_old_activate = RenewableResourceNodeComponent.activate
 function AceRenewableResourceNodeComponent:activate()
+   self._json = radiant.entities.get_json(self)
+   if not self._json then
+      return
+   end
    -- Temporary fix for objects that have had the RRN component removed mid-update cycle
-   if self._json.remove_self then
+   if self._json and self._json.remove_self then
       self._entity:remove_component('stonehearth:renewable_resource_node')
       return
    end
