@@ -216,11 +216,6 @@ function AceCraftOrderList:add_order(player_id, recipe, condition, building, ass
       --    if it doesn't, simply add it as usual
       local order = self:_find_craft_order(recipe, 'maintain')
       if order then
-         --log:debug('checking if maintain order "%s" is to be replaced', order:get_recipe().recipe_name)
-         --log:detail('this is %sa recursive call, the order\'s value is %d and the new one is %d',
-         --   is_recursive_call and 'NOT ' or '',
-         --   order:get_condition().at_least,
-         --   condition.at_least)
          local at_least = tonumber(condition.at_least)
          local order_condition = order:get_condition()
          local order_at_least = order_condition.at_least
@@ -782,10 +777,6 @@ function AceCraftOrderList:_get_next_order(crafter, order_list)
             end
          end
       end
-      -- This is a hot path. Commenting out the debug logs for now. -yshan
-      --log:debug('craft_order_list: We are not going to continue this order of recipe %s', order:get_recipe().recipe_name)
-      --log:debug('craft_order_list: Current crafter should be %s and crafter id is %s', order:get_current_crafter_id(), crafter:get_id())
-      --log:debug('craft_order_list: Crafting status is %s', order:get_crafting_status())
    end
    return nil, count
 end
