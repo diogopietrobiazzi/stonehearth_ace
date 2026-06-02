@@ -69,11 +69,24 @@ function PatrolBannerComponent:_remove_from_chain()
       self._sv.next_banner = nil
    end
 
-   if self._sv.prev_banner then
-      self._sv.prev_banner:get_component('stonehearth_ace:patrol_banner'):set_next_banner(self._sv.next_banner)
+   local prev_banner = self._sv.prev_banner
+   local next_banner = self._sv.next_banner
+
+   self:set_prev_banner(nil)
+   self:set_next_banner(nil)
+
+   if prev_banner then
+      prev_banner:get_component('stonehearth_ace:patrol_banner'):link_to_next_banner(next_banner)
    end
-   if self._sv.next_banner then
-      self._sv.next_banner:get_component('stonehearth_ace:patrol_banner'):set_prev_banner(self._sv.prev_banner)
+end
+
+function PatrolBannerComponent:link_to_next_banner(banner)
+   self:set_next_banner(banner)
+   if banner then
+      local other_comp = banner:get_component('stonehearth_ace:patrol_banner')
+      if other_comp then
+         other_comp:set_prev_banner(self._entity)
+      end
    end
 end
 
