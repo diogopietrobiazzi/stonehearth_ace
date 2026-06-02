@@ -2,6 +2,7 @@ local constants = require 'stonehearth.constants'
 local Point3 = _radiant.csg.Point3
 local Cube3 = _radiant.csg.Cube3
 local Region3 = _radiant.csg.Region3
+local Color4 = _radiant.csg.Color4
 local log = radiant.log.create_logger('mining')
 local validator = radiant.validator
 
@@ -204,16 +205,17 @@ function AceMiningCallHandler:designate_mining_zone(session, response, tool_mode
       end
       local region = self:_get_dig_region(box, mode, tool_mode, origin, normal, current_custom_block_size_horizontal, current_custom_block_size_vertical)
       
-      local color = { x = 255, y = 255, z = 0 } -- ye olde default
+      local color = Color4(255, 255, 0, 255) -- ye olde default
       if is_ctrl_held() then
-         color = { x = 255, y = 0, z = 0 } -- removal is always red
+         color = Color4(255, 0, 0, 255) -- removal is always red
       else
          if stonehearth.presence_client:is_multiplayer() then
             color = stonehearth.presence_client:get_player_color(_radiant.client.get_player_id())
          end
          if bid then
             -- if it's part of a building id, reduce the green
-            color.x = color.x * 0.6
+            local r, g, b, a = color.r or color.x, color.g or color.y, color.b or color.z, color.a or 255
+            color = Color4(r, g * 0.6, b, a)
          end
       end
       
