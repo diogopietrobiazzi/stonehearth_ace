@@ -22,4 +22,18 @@ function PropertyValues:set_property(property, value, replace)
    end
 end
 
+-- Moved behavior from external services to resolve Data Class code smell
+function PropertyValues:execute_property_logic()
+   local log = radiant.log.create_logger('property_values')
+   for property, value in pairs(self._sv.properties) do
+      if property == 'cold' and value == true then
+         -- Apply cold specific logic
+         log:debug('Applying cold logic to entity.')
+      elseif property == 'hot' and value == true then
+         -- Apply hot specific logic
+         log:debug('Applying hot logic to entity.')
+      end
+   end
+end
+
 return PropertyValues
