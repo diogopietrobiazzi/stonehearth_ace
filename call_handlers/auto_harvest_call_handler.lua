@@ -1,9 +1,8 @@
-local validator = radiant.validator
-local AutoHarvestCallHandler = class()
+local BaseCallHandler = require 'stonehearth_ace.call_handlers.base_call_handler'
+local AutoHarvestCallHandler = class(BaseCallHandler)
 
 function AutoHarvestCallHandler:toggle_auto_harvest(session, response, entity, enabled)
-   validator.expect_argument_types({'Entity'}, entity)
-   validator.expect.matching_player_id(session.player_id, entity)
+   self:verify_player_entity_authorization(session, entity)
 
    local renewable = entity:get_component('stonehearth:renewable_resource_node')
    if renewable then
