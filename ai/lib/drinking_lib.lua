@@ -57,25 +57,39 @@ function DrinkingLib.get_quality(drink_stuff, drink_preferences, drink_intoleran
    end
 
    local quality = catalog_data.drink_quality or qualities.RAW_BLAND
-   local weather_types = stonehearth.constants.weather.weather_types
-   local drink_attributes = catalog_data.drink_attributes
+   quality = DrinkingLib._adjust_quality_for_weather(quality, weather_type, catalog_data.drink_attributes)
+   quality = DrinkingLib._adjust_quality_for_time(quality, hour_type, catalog_data.drink_attributes)
 
-	if weather_type == weather_types.COLD then
+   return math.max(quality, qualities.UNPALATABLE)
+end
+
+function DrinkingLib._is_warming_weather(weather_type)
+   return weather_type == stonehearth.constants.weather.weather_types.COLD
+end
+
+function DrinkingLib._is_refreshing_weather(weather_type)
+   return weather_type == stonehearth.constants.weather.weather_types.HOT
+end
+
+function DrinkingLib._adjust_quality_for_weather(quality, weather_type, drink_attributes)
+	if DrinkingLib._is_warming_weather(weather_type) then
 		if drink_attributes.is_warming then
          quality = quality + 3
 		elseif drink_attributes.is_refreshing then
 			quality = quality - 2
 		end
-	elseif weather_type == weather_types.HOT then
+	elseif DrinkingLib._is_refreshing_weather(weather_type) then
 		if drink_attributes.is_refreshing then
          quality = quality + 3
 		elseif drink_attributes.is_warming then
 			quality = quality - 2
 		end
 	end
+   return quality
+end
 
+function DrinkingLib._adjust_quality_for_time(quality, hour_type, drink_attributes)
    local times = stonehearth.constants.drink_satiety
-
    if hour_type == times.DRINKTIME_NIGHT_START then
       if not drink_attributes.is_night_time then
          quality = quality - 2
@@ -97,8 +111,7 @@ function DrinkingLib.get_quality(drink_stuff, drink_preferences, drink_intoleran
 			quality = quality + 2
 		end
 	end
-
-   return math.max(quality, qualities.UNPALATABLE)
+   return quality
 end
 
 -- for the filter, we only actually care about intolerances
