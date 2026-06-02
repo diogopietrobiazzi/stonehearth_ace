@@ -12,9 +12,10 @@ function AceChunk:get_build_height()
    return self._sv._build_height
 end
 
-AceChunk._ace_old_set_data = Chunk.set_data
+-- Replaced Refused Bequest / pseudo-inheritance with delegation
+local _delegate_set_data = Chunk.set_data
 function AceChunk:set_data(mode, owning_structure, color_region_l, allow_unrestricted_building, allow_vertical_adjacency, wait_for_updates)
-   self:_ace_old_set_data(mode, owning_structure, color_region_l, allow_unrestricted_building, allow_vertical_adjacency, wait_for_updates)
+   _delegate_set_data(self, mode, owning_structure, color_region_l, allow_unrestricted_building, allow_vertical_adjacency, wait_for_updates)
 
    -- ACE: if we're building a large volume, not just a column/wall, only build one layer at a time;
    -- that way we can stand in it and build within cramped areas
