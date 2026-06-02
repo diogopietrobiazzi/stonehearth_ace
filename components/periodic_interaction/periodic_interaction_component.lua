@@ -184,6 +184,119 @@ local PI_TASK_GROUP = 'stonehearth_ace:task_groups:periodic_interaction'
 local PI_ACTION = 'stonehearth_ace:periodic_interaction'
 local PI_WITH_INGREDIENT_ACTION = 'stonehearth_ace:periodic_interaction_with_ingredient'
 
+local REWARD_HANDLERS = {
+   user_buff = function(self, user, reward, is_completed)
+      user:add_component('stonehearth:buffs'):add_buff(reward.buff)
+   end,
+   self_buff = function(self, user, reward, is_completed)
+      self._entity:add_component('stonehearth:buffs'):add_buff(reward.buff)
+   end,
+   experience = function(self, user, reward, is_completed)
+      local job_component = user:get_component('stonehearth:job')
+      if job_component then
+         local level = job_component:get_current_job_level()
+         job_component:add_exp(reward.value)
+         if reward.levelup_triggers_completion and level < job_component:get_current_job_level() then
+            return true
+         end
+      end
+   end,
+   permanent_attribute = function(self, user, reward, is_completed)
+      local attributes_component = user:add_component('stonehearth:attributes')
+      local cur_value = attributes_component:get_attribute(reward.attribute)
+      attributes_component:set_attribute(reward.attribute, cur_value + (reward.amount or 1))
+   end,
+   expendable_resource = function(self, user, reward, is_completed)
+      local expendable_resources_component = user:add_component('stonehearth:expendable_resources')
+      if reward.maximize then
+         expendable_resources_component:set_value(reward.resource, expendable_resources_component:get_max_value(reward.resource))
+      elseif reward.minimize then
+         expendable_resources_component:set_value(reward.resource, expendable_resources_component:get_min_value(reward.resource))
+      else
+         local cur_value = expendable_resources_component:get_value(reward.resource)
+         expendable_resources_component:set_value(reward.resource, cur_value + (reward.amount or 0))
+      end
+   end,
+   craft_items = function(self, user, reward, is_completed)
+      if not user then return end
+
+      -- use this item's quality if no ingredient quality was provided
+      -- determine the quality for each item to spawn
+      local ingredient_quality = self._sv.ingredient_quality or radiant.entities.get_item_quality(self._entity)
+      local quality_table = item_quality_lib.get_quality_table(user, reward.category, ingredient_quality)
+      local uris = {}
+      for uri, quantity in pairs(reward.items) do
+         if type(quantity) == 'table' then
+            quantity = rng:get_int(quantity.min, quantity.max)
+         end
+         if quantity > 0 then
+            local uri_table = {}
+            for i = 1, quantity do
+               local quality = item_quality_lib.get_quality(quality_table)
+               uri_table[quality] = (uri_table[quality] or 0) + 1
+            end
+            uris[uri] = uri_table
+         end
+      end
+
+      local options = {
+         owner = user:get_player_id(),
+         inputs = user,
+         output = self._entity,
+         spill_fail_items = true,
+         --add_spilled_to_inventory = true,
+      }
+
+      local location = radiant.entities.get_world_grid_location(user) or radiant.entities.get_world_grid_location(self._entity)
+      local items = radiant.entities.get_successfully_output_items(radiant.entities.output_items(uris, location, 0, 4, options))
+      local event_args = {recipe_data = reward}
+      local spawned_item
+      if next(items) then
+         spawned_item = items[next(items)]
+         event_args.product = spawned_item
+         event_args.product_uri = spawned_item:get_uri()
+      end
+
+      -- if we're "crafting" something, make sure that gets communicated to the crafter
+      -- reward should specify level_requirement, category, and proficiency_gain fields if relevant
+      radiant.events.trigger_async(user, 'stonehearth:crafter:craft_item', event_args)
+      return false, spawned_item
+   end,
+   spawn_items = function(self, user, reward, is_completed)
+      -- use this item's quality (as if it were an rn/rrn)
+      local quality = radiant.entities.get_item_quality(self._entity)
+      local uris = {}
+      for uri, quantity in pairs(reward.items) do
+         if type(quantity) == 'table' then
+            quantity = rng:get_int(quantity.min, quantity.max)
+         end
+         if quantity > 0 then
+            uris[uri] = {[quality] = quantity}
+         end
+      end
+
+      local options = {
+         owner = user and user:get_player_id() or self._entity:get_player_id(),
+         inputs = user,
+         output = self._entity,
+         spill_fail_items = true,
+         --add_spilled_to_inventory = true,
+      }
+
+      local location = user and radiant.entities.get_world_grid_location(user) or radiant.entities.get_world_grid_location(self._entity)
+      local items = radiant.entities.get_successfully_output_items(radiant.entities.output_items(uris, location, 0, 4, options))
+      if next(items) then
+         return false, items[next(items)]
+      end
+   end,
+   script = function(self, user, reward, is_completed)
+      local script = radiant.mods.load_script(reward.script)
+      if script and script.process_reward then
+         return script.process_reward(self._entity, user, self._sv.interaction_stage, reward.script_data, is_completed)
+      end
+   end,
+}
+
 local PeriodicInteractionComponent = class()
 
 local log = radiant.log.create_logger('periodic_interaction')
@@ -803,109 +916,13 @@ end
 -- different types of rewards: user_buff, self_buff, experience, permanent_attribute, expendable_resource, script
 function PeriodicInteractionComponent:_apply_reward(reward, is_completed)
    local user = self._sv.current_user
-   local spawned_item
-   
-   if reward.type == 'user_buff' then
-      user:add_component('stonehearth:buffs'):add_buff(reward.buff)
-   elseif reward.type == 'self_buff' then
-      self._entity:add_component('stonehearth:buffs'):add_buff(reward.buff)
-   elseif reward.type == 'experience' then
-      local job_component = user:get_component('stonehearth:job')
-      if job_component then
-         local level = job_component:get_current_job_level()
-         job_component:add_exp(reward.value)
-         if reward.levelup_triggers_completion and level < job_component:get_current_job_level() then
-            return true
-         end
-      end
-   elseif reward.type == 'permanent_attribute' then
-      local attributes_component = user:add_component('stonehearth:attributes')
-      local cur_value = attributes_component:get_attribute(reward.attribute)
-      attributes_component:set_attribute(reward.attribute, cur_value + reward.amount or 1)
-   elseif reward.type == 'expendable_resource' then
-      local expendable_resources_component = user:add_component('stonehearth:expendable_resources')
-      if reward.maximize then
-         expendable_resources_component:set_value(reward.resource, expendable_resources_component:get_max_value(reward.resource))
-      elseif reward.minimize then
-         expendable_resources_component:set_value(reward.resource, expendable_resources_component:get_min_value(reward.resource))
-      else
-         local cur_value = expendable_resources_component:get_value(reward.resource)
-         expendable_resources_component:set_value(reward.resource, cur_value + reward.amount or 0)
-      end
-   elseif reward.type == 'craft_items' and user then
-      -- use this item's quality if no ingredient quality was provided
-      -- determine the quality for each item to spawn
-      local ingredient_quality = self._sv.ingredient_quality or radiant.entities.get_item_quality(self._entity)
-      local quality_table = item_quality_lib.get_quality_table(user, reward.category, ingredient_quality)
-      local uris = {}
-      for uri, quantity in pairs(reward.items) do
-         if type(quantity) == 'table' then
-            quantity = rng:get_int(quantity.min, quantity.max)
-         end
-         if quantity > 0 then
-            local uri_table = {}
-            for i = 1, quantity do
-               local quality = item_quality_lib.get_quality(quality_table)
-               uri_table[quality] = (uri_table[quality] or 0) + 1
-            end
-            uris[uri] = uri_table
-         end
-      end
-
-      local options = {
-         owner = user:get_player_id(),
-         inputs = user,
-         output = self._entity,
-         spill_fail_items = true,
-         --add_spilled_to_inventory = true,
-      }
-
-      local location = radiant.entities.get_world_grid_location(user) or radiant.entities.get_world_grid_location(self._entity)
-      local items = radiant.entities.get_successfully_output_items(radiant.entities.output_items(uris, location, 0, 4, options))
-      local event_args = {recipe_data = reward}
-      if next(items) then
-         spawned_item = items[next(items)]
-         event_args.product = spawned_item
-         event_args.product_uri = spawned_item:get_uri()
-      end
-
-      -- if we're "crafting" something, make sure that gets communicated to the crafter
-      -- reward should specify level_requirement, category, and proficiency_gain fields if relevant
-      radiant.events.trigger_async(user, 'stonehearth:crafter:craft_item', event_args)
-   elseif reward.type == 'spawn_items' then
-      -- use this item's quality (as if it were an rn/rrn)
-      local quality = radiant.entities.get_item_quality(self._entity)
-      local uris = {}
-      for uri, quantity in pairs(reward.items) do
-         if type(quantity) == 'table' then
-            quantity = rng:get_int(quantity.min, quantity.max)
-         end
-         if quantity > 0 then
-            uris[uri] = {[quality] = quantity}
-         end
-      end
-
-      local options = {
-         owner = user and user:get_player_id() or self._entity:get_player_id(),
-         inputs = user,
-         output = self._entity,
-         spill_fail_items = true,
-         --add_spilled_to_inventory = true,
-      }
-
-      local location = user and radiant.entities.get_world_grid_location(user) or radiant.entities.get_world_grid_location(self._entity)
-      local items = radiant.entities.get_successfully_output_items(radiant.entities.output_items(uris, location, 0, 4, options))
-      if next(items) then
-         spawned_item = items[next(items)]
-      end
-   elseif reward.type == 'script' then
-      local script = radiant.mods.load_script(reward.script)
-      if script and script.process_reward then
-         return script.process_reward(self._entity, user, self._sv.interaction_stage, reward.script_data, is_completed)
-      end
+   local handler = REWARD_HANDLERS[reward.type]
+   if handler then
+      local completed, item = handler(self, user, reward, is_completed)
+      return completed or false, item
    end
 
-   return false, spawned_item
+   return false
 end
 
 function PeriodicInteractionComponent:_start_general_cooldown_timer(duration)
