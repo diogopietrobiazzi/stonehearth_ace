@@ -794,4 +794,14 @@ ace_entities.get_appeal_optimized = (function()
    end
 end)()
 
+function ace_entities.get_interaction_proxy(entity)
+   if entity and entity:is_valid() then
+      local entity_forms = entity:get_component('stonehearth:entity_forms')
+      if entity_forms then
+         return entity_forms:get_interaction_proxy()
+      end
+   end
+   return nil
+end
+
 return ace_entities
