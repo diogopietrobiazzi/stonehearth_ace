@@ -154,7 +154,7 @@ App.StonehearthFarmView = App.StonehearthBaseZonesModeView.extend({
       });
 
       self.$('#enableHarvestCheckbox').change(function() {
-         radiant.call('stonehearth_ace:set_farm_harvest_enabled', self.get('uri'), this.checked);
+         radiant.call_obj(self.get('uri'), 'stonehearth:farmer_field', 'set_harvest_enabled', this.checked);
       })
 
       // tooltips

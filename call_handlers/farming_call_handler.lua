@@ -1,28 +1,18 @@
-local validator = radiant.validator
-local FarmingCallHandler = class()
+local BaseCallHandler = require 'stonehearth_ace.call_handlers.base_call_handler'
+local FarmingCallHandler = class(BaseCallHandler)
 
 function FarmingCallHandler:set_farm_fertilizer_preference(session, response, field, preference)
-   validator.expect_argument_types({'Entity', 'table'}, field, preference)
-
-   if session.player_id ~= field:get_player_id() then
+   if not self:is_player_entity_authorized(session, field) then
       return false
-   else
-      local farmer_field = field:get_component('stonehearth:farmer_field')
+   end
+
+   local farmer_field = field:get_component('stonehearth:farmer_field')
+   if farmer_field then
       farmer_field:set_fertilizer_preference(preference)
       return true
    end
+   return false
 end
 
-function FarmingCallHandler:set_farm_harvest_enabled(session, response, field, enabled)
-   validator.expect_argument_types({'Entity'}, field)
-   
-   if session.player_id ~= field:get_player_id() then
-      return false
-   else
-      local farmer_field = field:get_component('stonehearth:farmer_field')
-      farmer_field:set_harvest_enabled(enabled and true or false)
-      return true
-   end
-end
 
 return FarmingCallHandler
