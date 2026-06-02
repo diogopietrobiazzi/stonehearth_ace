@@ -9,6 +9,8 @@ local entity_forms_lib = require 'stonehearth.lib.entity_forms.entity_forms_lib'
 local constants = require 'stonehearth.constants'
 local farming_constants = constants.farming
 
+local FieldClimateManager = require 'stonehearth_ace.lib.farming.field_climate_manager'
+
 local FERTILIZER_MODEL_FAILSAFE = {
    -- defaults for unknown field types:
    model = 'stonehearth_ace/entities/farming/fertilize_applied/fertilize_applied.qb',
@@ -82,6 +84,8 @@ function AceFarmerFieldComponent:post_activate()
    self:_ensure_fertilize_layer()
 
    self._post_harvest_crop_listeners = {}
+   self._climate_manager = FieldClimateManager(self)
+
    if self._is_restore then
       self:_load_field_type()
       self:_cache_biome_elevation_levels()
@@ -842,8 +846,7 @@ function AceFarmerFieldComponent:_update_climate()
    if not self._sky_visibility or not self._biome_sunlight or not self._season_sunlight or not self._weather_sunlight then
       return
    end
-   
-   local changed = false
+
    local raw_sunlight = self._sky_visibility * self._biome_sunlight * self._season_sunlight * self._weather_sunlight
    local sunlight = math.floor(100 * raw_sunlight * self._light_elevation_modifier) / 100
 
@@ -851,26 +854,7 @@ function AceFarmerFieldComponent:_update_climate()
    local humidity = math.floor(100 * raw_humidity * self._humidity_elevation_modifier) / 100
    local frozen = self._weather_frozen
 
-   if sunlight ~= self._sv.sunlight_level then
-      self._sv.sunlight_level = sunlight
-      changed = true
-   end
-
-   if humidity ~= self._sv.humidity_level then
-      self._sv.humidity_level = humidity
-      changed = true
-   end
-
-   if frozen ~= self._sv.frozen then
-      self._sv.frozen = frozen
-      self.__saved_variables:mark_changed()
-   end
-
-   if changed then
-      self._sv._last_set_water_level = self._sv._water_level
-      self:_update_effective_humidity_level()
-      self:_set_growth_factors()
-   end
+   self._climate_manager:update_climate(sunlight, humidity, frozen)
 end
 
 function AceFarmerFieldComponent:_set_growth_factors()
