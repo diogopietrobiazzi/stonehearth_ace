@@ -83,9 +83,9 @@ function TemplatePlacementTool:_on_keyboard_event(e)
 
    -- period and comma rotate the cursor
    if bindings:is_action_active('build:rotate:left') then
-      deltaRot = -90
+      deltaRot = -ROTATION_DEGREES.QUARTER_TURN
    elseif bindings:is_action_active('build:rotate:right') then
-      deltaRot = 90
+      deltaRot = ROTATION_DEGREES.QUARTER_TURN
    elseif bindings:is_action_active('build:sink_template') then
       sink = true
    elseif bindings:is_action_active('build:raise_template') then
@@ -128,7 +128,7 @@ function TemplatePlacementTool:_on_keyboard_event(e)
    end
 
    if deltaRot ~= 0 or sink ~= nil or grid_changed then
-      self._rotation = (360 + ((self._rotation + deltaRot) % 360)) % 360
+      self._rotation = (ROTATION_DEGREES.FULL_CIRCLE + ((self._rotation + deltaRot) % ROTATION_DEGREES.FULL_CIRCLE)) % ROTATION_DEGREES.FULL_CIRCLE
 
       if pos then
          self:_place_template(pos)
@@ -235,12 +235,12 @@ function TemplatePlacementTool:_get_snap_grid_position(pos)
 
    -- WHY?!?!
    local delta_fixup = Point3(0, 0, 0)
-   local rot_delta = 360 - self._rotation
-   if rot_delta == 90 then
+   local rot_delta = ROTATION_DEGREES.FULL_CIRCLE - self._rotation
+   if rot_delta == ROTATION_DEGREES.QUARTER_TURN then
       delta_fixup = Point3(0, 0, -1)
-   elseif rot_delta == 180 then
+   elseif rot_delta == ROTATION_DEGREES.HALF_TURN then
       delta_fixup = Point3(-1, 0, -1)
-   elseif rot_delta == 270 then
+   elseif rot_delta == ROTATION_DEGREES.THREE_QUARTER_TURN then
       delta_fixup = Point3(-1, 0, 0)
    end
 
@@ -306,12 +306,12 @@ function TemplatePlacementTool:_place_template(brick)
    bounds = bounds:rotated(360 - self._rotation)
 
    local delta_fixup = Point3(0, 0, 0)
-   local rot_delta = 360 - self._rotation
-   if rot_delta == 90 then
+   local rot_delta = ROTATION_DEGREES.FULL_CIRCLE - self._rotation
+   if rot_delta == ROTATION_DEGREES.QUARTER_TURN then
       delta_fixup = Point3(0, 0, -1)
-   elseif rot_delta == 180 then
+   elseif rot_delta == ROTATION_DEGREES.HALF_TURN then
       delta_fixup = Point3(-1, 0, -1)
-   elseif rot_delta == 270 then
+   elseif rot_delta == ROTATION_DEGREES.THREE_QUARTER_TURN then
       delta_fixup = Point3(-1, 0, 0)
    end
 
