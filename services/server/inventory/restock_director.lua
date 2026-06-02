@@ -718,7 +718,7 @@ function RestockDirector:_eval_item_for_restocking(item, is_primary, temp_failed
                      -- ACE: also check to make sure the item isn't currently stored in an input bin of equal or greater priority
                      if self:_is_storage_higher_priority_for_item(item, storage_component) then
                         if self:_are_reachable(item, storage) then
-                           local storage_score = self:_rate_storage_for_item(storage, storage_component, item, item_quality)
+                           local storage_score = storage_component:calculate_restock_score(item, item_quality)
                            if not best_storage or storage_score > best_storage_score then
                               best_storage = storage
                               best_storage_score = storage_score

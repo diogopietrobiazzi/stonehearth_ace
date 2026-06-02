@@ -10,7 +10,43 @@ local INFINITE = 1000000
 local log = radiant.log.create_logger('storage_component')
 
 AceStorageComponent._ace_old_create = StorageComponent.create
+function AceStorageComponent:calculate_restock_score(item, item_quality)
+   local prioritize_high_quality = self:get_prioritize_restocking_high_quality()
+   local quality_rating
+   if prioritize_high_quality then
+      quality_rating = item_quality or 0
+   else
+      quality_rating = not item_quality and 1 or 0
+   end
+
+   local src_location = radiant.entities.get_world_location(item)
+   if not src_location then
+      local inventory = stonehearth.inventory:get_inventory(radiant.entities.get_player_id(self._entity))
+      if inventory then
+         local container = inventory:container_for(item)
+         if container then
+            src_location = radiant.entities.get_world_location(container)
+         end
+      end
+      if not src_location then
+         return quality_rating
+      end
+   end
+   
+   local storage_location = radiant.entities.get_world_location(self._entity)
+   if storage_location then
+      -- we want to scale the distance down so that quality rating has a bigger impact
+      local constants = require 'stonehearth.constants'
+      local MAX_DISTANCE_FOR_RATING_SQ = constants.inventory.MAX_SIGNIFICANT_PATH_LENGTH * constants.inventory.MAX_SIGNIFICANT_PATH_LENGTH
+      local distance_rating = math.min(MAX_DISTANCE_FOR_RATING_SQ, src_location:distance_to_squared(storage_location)) / MAX_DISTANCE_FOR_RATING_SQ
+      return quality_rating - distance_rating
+   else
+      return -1
+   end
+end
+
 function AceStorageComponent:create()
+   self:_ace_old_create()
    self._is_create = true
 
    local basic_tracker = radiant.create_controller('stonehearth:basic_inventory_tracker')
