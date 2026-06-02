@@ -1,5 +1,6 @@
 local Entity = _radiant.om.Entity
 local pi_lib = require 'stonehearth_ace.lib.periodic_interaction.periodic_interaction_lib'
+local PeriodicInteractionState = require 'stonehearth_ace.ai.actions.periodic_interaction.periodic_interaction_state'
 local InteractWithItem = radiant.class()
 
 InteractWithItem.name = 'periodic_interaction'
@@ -15,8 +16,7 @@ function InteractWithItem:start_thinking(ai, entity, args)
    self._ai = ai
    self._entity = entity
    self._item = args.item
-   self._started = false
-   self._ready = false
+   self._state = PeriodicInteractionState()
 
    if not self:_rethink() then
       self._listeners = pi_lib.create_usability_listeners(entity, self._item, function()
@@ -35,11 +35,11 @@ function InteractWithItem:stop_thinking(ai, entity, args)
 end
 
 function InteractWithItem:start(ai, entity, args)
-   self._started = true
+   self._state:set_started(true)
 end
 
 function InteractWithItem:_rethink()
-   if self._started then
+   if self._state:is_started() then
       return
    end
 
@@ -47,14 +47,14 @@ function InteractWithItem:_rethink()
 
    local periodic_interaction_comp = self._item and self._item:is_valid() and self._item:get_component('stonehearth_ace:periodic_interaction')
    if periodic_interaction_comp and periodic_interaction_comp:is_usable() and periodic_interaction_comp:is_valid_potential_user(self._entity) then
-      if not self._ready then
-         self._ready = true
+      if not self._state:is_ready() then
+         self._state:set_ready(true)
          self._ai:set_think_output({})
          log:debug('%s can use %s!', self._entity, self._item)
          return true
       end
-   elseif self._ready then
-      self._ready = false
+   elseif self._state:is_ready() then
+      self._state:set_ready(false)
       self._ai:clear_think_output()
       log:debug('%s cannot use %s', self._entity, tostring(self._item))
    end
