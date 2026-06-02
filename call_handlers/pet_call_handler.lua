@@ -1,11 +1,8 @@
-local validator = radiant.validator
-
-local PetCallHandler = class()
+local BaseCallHandler = require 'stonehearth_ace.call_handlers.base_call_handler'
+local PetCallHandler = class(BaseCallHandler)
 
 function PetCallHandler:set_pet_owner(session, response, pet, owner)
-   validator.expect_argument_types({'Entity', 'Entity'}, pet, owner)
-
-   if session.player_id ~= pet:get_player_id() or session.player_id ~= owner:get_player_id() then
+   if not self:is_player_entity_authorized(session, pet) or not self:is_player_entity_authorized(session, owner) then
       return false
    else
       radiant.entities.add_pet(owner, pet)
